@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: { url: string | URL; method: string; headers: any; body: BodyInit | null | undefined; }) {
+export async function GET(request: Request) {
   // Extract the URL from the query parameters
   const url = new URL(request.url);
   const targetURL = url.searchParams.get('url'); // ?url=xxx
@@ -11,12 +11,19 @@ export async function GET(request: { url: string | URL; method: string; headers:
     return new Response('Missing target URL parameter', { status: 400 });
   }
 
+  // Optionally validate the target URL to prevent SSRF or malicious requests
+  try {
+    new URL(targetURL); // Ensure the target URL is valid
+  } catch (error) {
+    return new Response('Invalid target URL', { status: 400 });
+  }
+
   try {
     // Perform the fetch request to the target URL
     const res = await fetch(targetURL, {
       method: request.method,
       headers: request.headers,
-      body: request.method === 'POST' ? request.body : null
+      body: request.method === 'POST' ? request.body : null,
     });
 
     // Check if the fetch request was successful
@@ -30,13 +37,12 @@ export async function GET(request: { url: string | URL; method: string; headers:
       status: res.status,
       headers: {
         'Content-Type': res.headers.get('Content-Type') || 'text/html',
-      }
+      },
     });
 
   } catch (error) {
     // Handle any errors during the fetch
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    return new Response('Error while fetching the target URL: ' + error.message, { status: 500 });
+    console.error('Error while fetching the target URL:', error);
+    return new Response('Error while fetching the target URL: ',{ status: 500 });
   }
 }
