@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const path = url.pathname.substring(1);
-    const targetURL = `https://${path}`;
+    const targetURL = `https://${path}${url.search}`;
 
     try {
         const response = await fetch(targetURL, {
