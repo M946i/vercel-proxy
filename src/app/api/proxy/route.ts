@@ -17,24 +17,24 @@ export async function DELETE(req: Request) {
 }
 
 async function handle(req: Request) {
-  const url = new URL(req.url);
-  const target = url.searchParams.get("url");
+  const fullUrl = req.url;
 
-  if (!target) {
+  // 提取 ?url= 后面的所有内容
+  const match = fullUrl.match(/\?url=(.*)/);
+  if (!match || !match[1]) {
     return new Response("Missing url param", { status: 400 });
   }
 
+  const target = decodeURIComponent(match[1]); // 解码
   let targetUrl: URL;
+
   try {
     targetUrl = new URL(target);
   } catch {
     return new Response("Invalid url", { status: 400 });
   }
 
-  
   const headers = new Headers();
-  
-
 
   const response = await fetch(targetUrl.toString(), {
     method: req.method,
@@ -43,10 +43,8 @@ async function handle(req: Request) {
     redirect: "manual",
   });
 
-  // ✅ 复制响应 headers
   const resHeaders = new Headers();
   response.headers.forEach((value, key) => {
-    // 可选：过滤一些有问题的 header
     if (key.toLowerCase() === "content-encoding") return;
     resHeaders.set(key, value);
   });
