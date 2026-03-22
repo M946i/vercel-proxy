@@ -31,20 +31,10 @@ async function handle(req: Request) {
     return new Response("Invalid url", { status: 400 });
   }
 
-  // ✅ 复制 headers（避免直接复用）
+  
   const headers = new Headers();
-  req.headers.forEach((value, key) => {
-    headers.set(key, value);
-  });
+  
 
-  // ⚠️ 删除不该透传的 headers
-  headers.delete("host");          // 很重要（避免冲突）
-  headers.delete("content-length");
-
-  // ⚠️ 尝试伪装（但不保证生效）
-  headers.set("host", targetUrl.host);
-  headers.set("origin", targetUrl.origin);
-  headers.set("referer", targetUrl.origin);
 
   const response = await fetch(targetUrl.toString(), {
     method: req.method,
