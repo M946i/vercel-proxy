@@ -1,36 +1,51 @@
-import { NextRequest } from "next/server";
+export const runtime = 'edge';
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export async function GET(req: Request) {
+  return handle(req);
+}
 
-export async function GET(request: NextRequest) {
-    const url = new URL(request.url);
-    const path = url.pathname.substring(1);
-    const targetURL = `https://${path}${url.search}`;
+export async function POST(req: Request) {
+  return handle(req);
+}
 
-    try {
-        const response = await fetch(targetURL, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36"
-            }
-        });
+export async function PUT(req: Request) {
+  return handle(req);
+}
 
-        // 将 Headers 转为普通对象，并删除可能冲突的 Content-Encoding
-        const headers: Record<string, string> = {};
-        response.headers.forEach((value, key) => {
-            if (key.toLowerCase() === "content-encoding") return; // 避免浏览器解码失败
-            headers[key] = value;
-        });
+export async function DELETE(req: Request) {
+  return handle(req);
+}
 
-        // 将 body 转为 ArrayBuffer 或直接流
-        const buffer = await response.arrayBuffer();
+async function handle(req: Request) {
+  const url = new URL(req.url);
 
-        return new Response(buffer, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: headers
-        });
-    } catch (error) {
-        return new Response("Proxy request failed", { status: 500 });
-    }
+  // 例如：/api/proxy?url=https://aaa/?xxx=xxx
+  const target = url.searchParams.get("url");
+  if (!target) {
+    return new Response("Missing url param", { status: 400 });
+  }
+
+  const targetUrl = new URL(target);
+
+  // 复制 headers
+  const headers = new Headers(req.headers);
+
+  // ⚠️ 关键：修改 Host
+  headers.set("host", targetUrl.host);
+
+  // 可选：伪装来源
+  headers.set("origin", targetUrl.origin);
+  headers.set("referer", targetUrl.origin);
+
+  const response = await fetch(targetUrl.toString(), {
+    method: req.method,
+    headers,
+    body: req.body, // 透传请求体
+    redirect: "manual"
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: response.headers
+  });
 }
