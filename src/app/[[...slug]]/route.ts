@@ -18,34 +18,51 @@ export async function DELETE(req: Request) {
 
 async function handle(req: Request) {
   const url = new URL(req.url);
-
-  // 例如：/api/proxy?url=https://aaa/?xxx=xxx
   const target = url.searchParams.get("url");
+
   if (!target) {
     return new Response("Missing url param", { status: 400 });
   }
 
-  const targetUrl = new URL(target);
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(target);
+  } catch {
+    return new Response("Invalid url", { status: 400 });
+  }
 
-  // 复制 headers
-  const headers = new Headers(req.headers);
+  // ✅ 复制 headers（避免直接复用）
+  const headers = new Headers();
+  req.headers.forEach((value, key) => {
+    headers.set(key, value);
+  });
 
-  // ⚠️ 关键：修改 Host
+  // ⚠️ 删除不该透传的 headers
+  headers.delete("host");          // 很重要（避免冲突）
+  headers.delete("content-length");
+
+  // ⚠️ 尝试伪装（但不保证生效）
   headers.set("host", targetUrl.host);
-
-  // 可选：伪装来源
   headers.set("origin", targetUrl.origin);
   headers.set("referer", targetUrl.origin);
 
   const response = await fetch(targetUrl.toString(), {
     method: req.method,
     headers,
-    body: req.body, // 透传请求体
-    redirect: "manual"
+    body: req.method === "GET" || req.method === "HEAD" ? undefined : req.body,
+    redirect: "manual",
+  });
+
+  // ✅ 复制响应 headers
+  const resHeaders = new Headers();
+  response.headers.forEach((value, key) => {
+    // 可选：过滤一些有问题的 header
+    if (key.toLowerCase() === "content-encoding") return;
+    resHeaders.set(key, value);
   });
 
   return new Response(response.body, {
     status: response.status,
-    headers: response.headers
+    headers: resHeaders,
   });
 }
